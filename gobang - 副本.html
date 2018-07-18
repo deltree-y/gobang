@@ -1,0 +1,165 @@
+<html>
+
+<head>
+    <title>gobang</title>
+    <link href="canvas.css" rel="stylesheet" type="text/css">
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8="
+        crossorigin="anonymous"></script>
+    <script>
+        "use strict";   //使用严格模式
+
+        $(function () {
+            alert("null function");
+            //添加窗口尺寸改变响应监听
+            $(window).resize(resizeCanvas);
+            //页面加载后先设置一下canvas大小
+            var _board_cvs = getCanvas("chessBoard");
+            var _chessBoard = new board_canvas(10, 30, _board_cvs.width);
+            var _chessState = new board_state(10);
+            resizeCanvas(_chessBoard, _chessState, _board_cvs);
+
+            _board_cvs.onmousedown = function (evt) {
+                evt = window.event || evt;
+                //获取canvas相对于浏览器圆点的坐标  
+                var rect = _board_cvs.getBoundingClientRect();
+                //获取圆心的位置         
+                //获取鼠标在canvas上的位置  
+                var arcX = (evt.pageX - rect.left) * (_board_cvs.width / rect.width);
+                var arcY = (evt.pageY - rect.top) * (_board_cvs.height / rect.height);
+
+                var chess_pos = _chessBoard.getColRow(arcX, arcY);
+                if (_chessState.doMove(chess_pos.row, chess_pos.col) == true) {
+                    drawAChess(_chessBoard, _board_cvs, chess_pos.row, chess_pos.col, 3 - _chessState.pid);
+                    $("#debug").text("current move is:" + chess_pos.row + "," + chess_pos.col).show();
+                    $("#next_player").text("next player is: " + ((_chessState.pid == 1) ? "BLACK" : "WHITE")).show();
+                }
+                else
+                    alert("invalid move:" + chess_pos.row + "," + chess_pos.col + ". chess state is:" +
+                        _chessState.state[_chessState.pos2move(chess_pos.row, chess_pos.col)]);
+
+            }
+        });
+
+        //窗口尺寸改变响应（修改canvas大小）
+        function resizeCanvas(chessBoard, chessState, board_cvs) {
+            alert("in resizeCanvas, board_sz:" + chessBoard.sz);
+            var board_h = $(window).get(0).innerWidth * 0.6;
+            var board_w = board_h;
+            $("#chessBoard").attr("width", board_w);
+            $("#chessBoard").attr("height", board_h);
+            chessBoard.boardResize(board_h);
+            drawChessBoard(chessBoard, board_cvs);
+            alert(board_w);
+        };
+
+        function getCanvas(eleId) {
+            //获取画布DOM  还不可以操作
+            let cvs = document.getElementById(eleId);
+            return cvs;
+        }
+
+        function getCanvasCtx(cvs) {
+            //设置绘图环境
+            let cxt = cvs.getContext('2d');
+            return cxt;
+        }
+
+        class board_canvas {
+            constructor(board_sz, board_border, cvs_sz) {
+                this.sz = board_sz;
+                this.border = board_border;
+                this.cvs_sz = cvs_sz;
+                this.unit_space = this.boardResize(this.cvs_sz);
+            }
+
+            boardResize(cvs_sz) {
+                this.unit_space = (this.cvs_sz - 2 * this.border) / (this.sz - 1);
+            }
+
+            getColRow(x, y) {
+                return {
+                    col: Math.round((x - this.border) / this.unit_space),
+                    row: Math.round((y - this.border) / this.unit_space)
+                }
+            }
+        }
+
+        class board_state {
+            constructor(board_sz) {
+                this.sz = board_sz;
+                this.full_cnt = this.sz * this.sz;
+                this.state = new Int8Array(this.full_cnt);
+                this.last_move = -1;
+                this.pid = 1; // 1为黑棋，2为白棋
+            }
+
+            doMove(row, col) {
+                let move = this.pos2move(row, col);
+                if (this.state[move] != 0) {
+                    return false;
+                } else {
+                    this.state[move] = this.pid;
+                    this.pid = 3 - this.state[move];
+                    this.last_move = move;
+                    return true;
+                }
+            }
+
+            pos2move(row, col) {
+                return row * this.sz + col;
+            }
+        }
+
+        function drawChessBoard(chessBoard, cvs) {
+            let context = getCanvasCtx(cvs);
+            //先画外框
+            context.lineWidth = 2;
+            context.strokeStyle = "black";
+            context.strokeRect(chessBoard.border, chessBoard.border,
+                cvs.width - 2 * chessBoard.border,
+                cvs.height - 2 * chessBoard.border);
+
+            //再画内框
+            context.lineWidth = 1;
+            context.strokeStyle = "#6A6868";
+            for (var i = 1; i < chessBoard.sz - 1; i++) {
+                context.strokeRect(chessBoard.border + i * chessBoard.unit_space, chessBoard.border,
+                    0, cvs.height - 2 * chessBoard.border);
+                context.strokeRect(chessBoard.border, chessBoard.border + i * chessBoard.unit_space,
+                    cvs.height - 2 * chessBoard.border, 0);
+            }
+        }
+
+        function drawAChess(chessBoard, cvs, row, col, pid) {
+            let player_color = (pid == 1) ? "black" : "white";
+            let radius = Math.round(chessBoard.unit_space / 4);
+
+            let ctx = getCanvasCtx(cvs);
+            ctx.beginPath();
+            ctx.fillStyle = player_color;
+            ctx.arc(chessBoard.border + col * chessBoard.unit_space,
+                chessBoard.border + row * chessBoard.unit_space,
+                radius, 0, 360, false);
+            ctx.fill();
+            ctx.closePath();
+        }
+
+        function drawAllChesses(chessBoard, chessState, cvs) {
+
+        }
+
+
+    </script>
+</head>
+
+<body>
+    <h4>gobang powered by tensorflow.js</h4>
+    <div id="debug">.</div>
+    <div id="next_player">.</div>
+    <br>
+    <canvas id="chessBoard">
+        Your browser does not support Canvas. Please try the latest chrome.
+    </canvas>
+</body>
+
+</html>
